@@ -17,13 +17,11 @@ const SignupSchema = z.object({
 });
 
 function genAccountNumber(): string {
-  // realistic 16-digit number (not Luhn)
   let s = "";
   for (let i = 0; i < 16; i++) s += Math.floor(Math.random() * 10);
   return s;
 }
 function genRouting(): string {
-  // 9-digit
   let s = "";
   for (let i = 0; i < 9; i++) s += Math.floor(Math.random() * 10);
   return s;
@@ -43,13 +41,9 @@ export async function POST(req: Request) {
     }
     const { email, username, fullName, password } = parsed.data;
 
-    // if we’ve already processed this idempotency key, return 200
     const existingIdem = await prisma.auditLog.findUnique({ where: { idempotencyKey: idem } });
-    if (existingIdem) {
-      return NextResponse.json({ ok: true });
-    }
+    if (existingIdem) return NextResponse.json({ ok: true });
 
-    // basic uniqueness checks
     const [emailExists, userExists] = await Promise.all([
       prisma.user.findUnique({ where: { email } }),
       prisma.user.findUnique({ where: { username } }),
@@ -78,14 +72,7 @@ export async function POST(req: Request) {
     });
 
     await prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: "SIGNUP",
-        idempotencyKey: idem,
-        metadata: {
-          username,
-        },
-      },
+      data: { userId: user.id, action: "SIGNUP", idempotencyKey: idem },
     });
 
     return NextResponse.json({ ok: true });
