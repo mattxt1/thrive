@@ -74,3 +74,12 @@ source of truth: GitHub → deploy on Vercel → DB on Neon → migrations/tests
      ```
 
 > Vercel: add `DATABASE_URL` after migrations are applied (Settings → Environment Variables).
+
+## auth (phase 3)
+
+- Credentials auth via Auth.js (NextAuth) + Prisma adapter + bcryptjs.
+- Signup endpoint: `POST /api/signup` requires **Idempotency-Key** and validates input; creates user + default CHECKING account; logs SIGNUP in AuditLog.
+- Protected route: `/dashboard`.
+- After merging Phase 3:
+  - In **Codespaces**: `npx prisma migrate deploy` (adds AuditLog).
+  - In **Vercel**: ensure `NEXTAUTH_SECRET` and `DATABASE_URL` are set; redeploy if needed.

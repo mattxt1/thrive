@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { Session } from "next-auth";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,7 +10,14 @@ export const metadata: Metadata = {
   description: "modern personal banking for everyone",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+type AppSession = Session & {
+  user?: Session["user"] & { id?: string | null; role?: "USER" | "ADMIN" };
+};
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = (await getServerSession(authOptions)) as AppSession | null;
+  const isAuthed = Boolean(session?.user);
+
   return (
     <html lang="en">
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
@@ -21,15 +31,37 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/about" className="hover:underline">
                 about
               </Link>
-              <Link href="/auth/signin" className="rounded-md border px-3 py-1.5 hover:bg-gray-50">
-                sign in
-              </Link>
-              <Link
-                href="/auth/signup"
-                className="rounded-md bg-black px-3 py-1.5 text-white hover:opacity-90"
-              >
-                create account
-              </Link>
+              {isAuthed ? (
+                <>
+                  <Link href="/dashboard" className="hover:underline">
+                    dashboard
+                  </Link>
+                  <form action="/api/auth/signout" method="post" className="contents">
+                    <input type="hidden" name="callbackUrl" value="/" />
+                    <button
+                      className="rounded-md border px-3 py-1.5 hover:bg-gray-50"
+                      type="submit"
+                    >
+                      sign out
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/signin"
+                    className="rounded-md border px-3 py-1.5 hover:bg-gray-50"
+                  >
+                    sign in
+                  </Link>
+                  <Link
+                    href="/auth/signup"
+                    className="rounded-md bg-black px-3 py-1.5 text-white hover:opacity-90"
+                  >
+                    create account
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </header>
