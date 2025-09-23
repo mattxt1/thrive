@@ -52,3 +52,25 @@ source of truth: GitHub → deploy on Vercel → DB on Neon → migrations/tests
 
 - brand names are strictly lowercase: **thrive**, **veritas**.
 - realistic banking UX only; no “demo/sample/playground” wording in UI or docs.
+
+## database & prisma (phase 2)
+
+- DB: Neon (managed Postgres).
+- In **Neon**, copy the **Pooled** connection string with `?sslmode=require` — this becomes `DATABASE_URL`.
+- In **Codespaces**:
+  1. Create a file `.env` (do **not** commit):
+     ```
+     DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DB?sslmode=require
+     NEXTAUTH_URL=http://localhost:3000
+     NEXTAUTH_SECRET=dev-only-secret
+     ```
+  2. Apply migrations to Neon:
+     ```
+     npx prisma migrate deploy
+     ```
+  3. (Optional) Inspect schema:
+     ```
+     npx prisma studio
+     ```
+
+> Vercel: add `DATABASE_URL` after migrations are applied (Settings → Environment Variables).
