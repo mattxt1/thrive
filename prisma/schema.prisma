@@ -6,3 +6,76 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  username       String       @unique
+  fullName       String
+  hashedPassword String
+  role           Role         @default(USER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  accounts       BankAccount[]
+  initiatedEntries JournalEntry[] @relation("UserInitiatedEntries")
+}
+
+model BankAccount {
+  id               String    @id @default(cuid())
+  userId           String
+  type             AccountType
+  displayName      String
+  accountNumber    String    @unique
+  routingNumber    String
+  isFrozen         Boolean   @default(false)
+  dailyLimitCents  Int       @default(200000)
+  createdAt        DateTime  @default(now())
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ledgerLines      LedgerLine[]
+
+  @@index([userId])
+  @@index([type])
+}
+
+model JournalEntry {
+  id                 String      @id @default(cuid())
+  createdAt          DateTime    @default(now())
+  postedAt           DateTime?
+  description        String?
+  initiatedByUserId  String?
+  idempotencyKey     String      @unique
+
+  initiatedBy        User?       @relation("UserInitiatedEntries", fields: [initiatedByUserId], references: [id])
+  lines              LedgerLine[]
+
+  @@index([postedAt])
+  @@index([createdAt])
+}
+
+model LedgerLine {
+  id             String        @id @default(cuid())
+  journalEntryId String
+  bankAccountId  String
+  amountCents    Int
+  currency       String        @default("USD")
+  memo           String?
+
+  journalEntry   JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  bankAccount    BankAccount   @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
+  @@index([journalEntryId])
+  @@index([bankAccountId])
+  @@index([currency])
+}
