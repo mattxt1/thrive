@@ -83,3 +83,11 @@ source of truth: GitHub → deploy on Vercel → DB on Neon → migrations/tests
 - After merging Phase 3:
   - In **Codespaces**: `npx prisma migrate deploy` (adds AuditLog).
   - In **Vercel**: ensure `NEXTAUTH_SECRET` and `DATABASE_URL` are set; redeploy if needed.
+
+## admin (phase 5)
+
+- /admin requires ADMIN role. Use Codespaces `npx prisma studio` to set your user `role` to `ADMIN`.
+- Admins can freeze or unfreeze accounts. Actions are logged to AuditLog.
+- Write endpoints enforce Idempotency-Key headers and are rate-limited per IP.
+- Transactions API: `GET /api/transactions` supports filters for `accountId`, `from`, `to`, `type`, and free-text `q`.
+- CSV export at `/api/transactions/export?accountId=...` (respects date filters).

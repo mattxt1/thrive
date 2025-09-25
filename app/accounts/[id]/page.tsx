@@ -17,6 +17,8 @@ export default async function AccountPage({ params }: { params: { id: string } }
     where: { bankAccountId: acct.id, journalEntry: { postedAt: { not: null } } },
   });
 
+  const exportHref = `/api/transactions/export?accountId=${acct.id}`;
+
   return (
     <section className="space-y-6">
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -26,6 +28,11 @@ export default async function AccountPage({ params }: { params: { id: string } }
         </div>
         <div className="text-sm text-gray-500">
           balance ${((balance._sum.amountCents ?? 0) / 100).toFixed(2)}
+        </div>
+        <div className="mt-3">
+          <a href={exportHref} className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50">
+            export csv
+          </a>
         </div>
       </div>
 
