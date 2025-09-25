@@ -91,3 +91,28 @@ source of truth: GitHub → deploy on Vercel → DB on Neon → migrations/tests
 - Write endpoints enforce Idempotency-Key headers and are rate-limited per IP.
 - Transactions API: `GET /api/transactions` supports filters for `accountId`, `from`, `to`, `type`, and free-text `q`.
 - CSV export at `/api/transactions/export?accountId=...` (respects date filters).
+
+## seed & reseed (phase 6)
+
+Deterministic data for cloud demos (runs from Codespaces against Neon).
+
+**users created**
+
+- admin@veritas.bank / passw0rd! (role: ADMIN)
+- alice@veritas.bank / passw0rd! (USER)
+- bob@veritas.bank / passw0rd! (USER)
+
+**balances after seed**
+
+- alice: checking $1,375.00, savings $2,625.00 (after one internal transfer of $125)
+- bob: checking $800.00
+- reserve (system): negative offset for balancing entries
+
+**commands (Codespaces)**
+
+```bash
+npm ci
+# .env must contain DATABASE_URL / NEXTAUTH_*
+npm run db:seed    # idempotent; creates if missing, verifies balances
+npm run db:reseed  # wipes and re-creates everything, then verifies
+```
