@@ -7,6 +7,7 @@ import {
   getTodayOutgoingCents,
   canDebit,
 } from "@/lib/services/ledger";
+import { rateLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,17 @@ const Schema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0]?.trim() ?? "unknown";
+    try {
+      rateLimit({
+        key: `transfer:${ip}:${new URL(req.url).pathname}`,
+        limit: 60,
+        windowMs: 60_000,
+      });
+    } catch {
+      return NextResponse.json({ error: "ratelimited" }, { status: 429 });
+    }
+
     const idem = req.headers.get("idempotency-key")?.trim();
     if (!idem || idem.length < 8 || idem.length > 200) {
       return NextResponse.json({ error: "invalid request" }, { status: 400 });
