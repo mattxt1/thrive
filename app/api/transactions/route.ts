@@ -39,6 +39,11 @@ export async function GET(req: Request) {
     const myAccountIds = myAccounts.map((a) => a.id);
     const myIdSet = new Set(myAccountIds);
 
+    // If no accountId is provided and the user has no accounts, return empty set early
+    if (!accountIdParam && myAccountIds.length === 0) {
+      return NextResponse.json({ items: [] });
+    }
+
     // If accountId provided, enforce ownership
     if (accountIdParam && !myIdSet.has(accountIdParam)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
