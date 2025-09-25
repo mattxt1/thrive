@@ -1,31 +1,53 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
-type TransactionType = "credit" | "debit";
-
-function parseDate(value: string | null): Date | undefined {
-  if (!value) return undefined;
-  const dt = new Date(value);
-  return Number.isNaN(dt.getTime()) ? undefined : dt;
+function parseDate(s: string | null): Date | undefined {
+  if (!s) return undefined;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? undefined : d;
 }
+
+type TransactionType = "credit" | "debit";
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+
+    const me = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!me) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
     const { searchParams } = new URL(req.url);
-    const accountId = searchParams.get("accountId") ?? undefined;
+    const accountIdParam = searchParams.get("accountId") ?? undefined;
     const from = parseDate(searchParams.get("from"));
     const to = parseDate(searchParams.get("to"));
     const type = searchParams.get("type") as TransactionType | null;
     const q = searchParams.get("q") ?? undefined;
 
-    const where: Prisma.LedgerLineWhereInput = {};
+    // Fetch account ids the user is allowed to see
+    const myAccounts = await prisma.bankAccount.findMany({
+      where: { userId: me.id },
+      select: { id: true },
+    });
+    const myAccountIds = myAccounts.map((a) => a.id);
+    const myIdSet = new Set(myAccountIds);
 
-    if (accountId) {
-      where.bankAccountId = accountId;
+    // If accountId provided, enforce ownership
+    if (accountIdParam && !myIdSet.has(accountIdParam)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
+
+    // Base where: limit to user's accounts (and optionally the one provided)
+    const where: Prisma.LedgerLineWhereInput = accountIdParam
+      ? { bankAccountId: accountIdParam }
+      : { bankAccountId: { in: myAccountIds } };
 
     if (type === "credit") {
       where.amountCents = { gt: 0 };
@@ -35,16 +57,11 @@ export async function GET(req: Request) {
 
     const journalFilter: Prisma.JournalEntryWhereInput = {};
     const createdAtFilter: Prisma.DateTimeFilter = {};
-    if (from) {
-      createdAtFilter.gte = from;
-    }
-    if (to) {
-      createdAtFilter.lte = to;
-    }
+    if (from) createdAtFilter.gte = from;
+    if (to) createdAtFilter.lte = to;
     if (Object.keys(createdAtFilter).length > 0) {
       journalFilter.createdAt = createdAtFilter;
     }
-
     if (Object.keys(journalFilter).length > 0) {
       where.journalEntry = { is: journalFilter };
     }
@@ -52,13 +69,7 @@ export async function GET(req: Request) {
     if (q) {
       where.OR = [
         { memo: { contains: q, mode: "insensitive" } },
-        {
-          journalEntry: {
-            is: {
-              description: { contains: q, mode: "insensitive" },
-            },
-          },
-        },
+        { journalEntry: { is: { description: { contains: q, mode: "insensitive" } } } },
       ];
     }
 
@@ -73,8 +84,7 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json({ items });
-  } catch (error) {
-    console.error("/api/transactions error", error);
+  } catch {
     return NextResponse.json({ error: "unable to process" }, { status: 500 });
   }
 }
